@@ -488,8 +488,8 @@ section .title::after{
     margin-top: 20px;
 }
 .owl-dot{
-    height: 20px;
-    width: 20px;
+    height: 13px;
+    width: 13px;
     margin: 0 5px;
     outline: none!important;
     border-radius: 50%;
@@ -503,6 +503,16 @@ section .title::after{
 .owl-dot.active,
 .owl-dot:hover{
     background: #557a95!important;
+}
+
+.owl-prev, .owl-next {
+    font-size: 24px; /* Adjust the font size if it uses font icons */
+    width: 40px; /* Increase width */
+    height: 40px; /* Increase height */
+}
+
+.owl-prev, .owl-next {
+    background-size: contain; /* Ensure the icon fits within the dimensions */
 }
 
 
