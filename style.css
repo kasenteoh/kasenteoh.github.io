@@ -505,15 +505,14 @@ section .title::after{
     background: #557a95!important;
 }
 
-.owl-prev, .owl-next {
-    font-size: 24px; /* Adjust the font size if it uses font icons */
-    width: 40px; /* Increase width */
-    height: 40px; /* Increase height */
+.owl-carousel .owl-nav button.owl-prev,
+.owl-carousel .owl-nav button.owl-next {
+    font-size: 24px !important;
+    width: 40px !important;
+    height: 40px !important;
+    background-size: contain !important;
 }
 
-.owl-prev, .owl-next {
-    background-size: contain; /* Ensure the icon fits within the dimensions */
-}
 
 
 /* contact section styling */
