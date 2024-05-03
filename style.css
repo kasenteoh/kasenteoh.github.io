@@ -422,7 +422,7 @@ section .title::after{
     width: 70%;
 }
 .skills-content .right .r::before{
-    width: 30%;
+    width: 60%;
 }
 .skills-content .right .sql::before{
     width: 30%;
