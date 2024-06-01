@@ -1,2 +1,2 @@
-# kasenteoh.github.io
-Kasen Teoh's Personal Website
+# kteoh.github.io
+Personal website
