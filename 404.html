@@ -1,0 +1,154 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>404 &mdash; Kasen Teoh</title>
+  <meta name="description" content="Page not found.">
+  <meta name="robots" content="noindex">
+  <meta name="theme-color" content="#0a0a0a">
+
+  <link rel="icon" href="/assets/img/favicon.svg" type="image/svg+xml">
+  <link rel="alternate icon" href="/assets/img/kt-icon.jpeg" type="image/jpeg">
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+  <link rel="stylesheet" href="/assets/css/style.css">
+
+  <style>
+    .notfound-wrap {
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: var(--sp-5);
+    }
+    .terminal-window {
+      width: 100%;
+      max-width: 620px;
+      background-color: var(--bg-secondary);
+      border: 1px solid var(--border-default);
+      border-radius: var(--radius-md);
+      box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+      overflow: hidden;
+      font-variant-ligatures: none;
+    }
+    .tw-titlebar {
+      display: flex;
+      align-items: center;
+      gap: var(--sp-2);
+      padding: var(--sp-3) var(--sp-4);
+      background-color: #0e0e0e;
+      border-bottom: 1px solid var(--border-subtle);
+    }
+    .tw-dot {
+      width: 11px;
+      height: 11px;
+      border-radius: 50%;
+      background-color: var(--border-default);
+    }
+    .tw-dot.r { background-color: #ff5f56; }
+    .tw-dot.y { background-color: #ffbd2e; }
+    .tw-dot.g { background-color: #27c93f; }
+    .tw-title {
+      margin-left: auto;
+      font-size: var(--fs-xs);
+      color: var(--text-tertiary);
+      letter-spacing: 0.02em;
+    }
+    .tw-body {
+      padding: var(--sp-5) var(--sp-5) var(--sp-6);
+      font-size: var(--fs-sm);
+      line-height: var(--lh-loose);
+    }
+    .tw-line {
+      display: block;
+      margin-bottom: var(--sp-2);
+    }
+    .tw-line.blank {
+      height: var(--sp-3);
+      margin: 0;
+    }
+    .tw-prompt {
+      color: var(--green);
+      font-weight: 700;
+      margin-right: var(--sp-2);
+    }
+    .tw-cmd {
+      color: var(--text-primary);
+    }
+    .tw-err {
+      color: var(--red);
+    }
+    .tw-muted {
+      color: var(--text-tertiary);
+    }
+    .tw-ls {
+      color: var(--green);
+      margin-right: var(--sp-3);
+    }
+    .tw-link {
+      color: var(--green);
+      border-bottom: 1px dotted var(--green-border);
+      padding-bottom: 1px;
+    }
+    .tw-link:hover {
+      color: var(--green-hover);
+      border-bottom-color: var(--green);
+    }
+    .tw-caret {
+      display: inline-block;
+      width: 7px;
+      height: 13px;
+      background-color: var(--green);
+      margin-left: 5px;
+      vertical-align: -2px;
+      animation: blink 1.1s steps(2, end) infinite;
+    }
+  </style>
+</head>
+<body>
+  <div class="notfound-wrap">
+    <div class="terminal-window" role="alert">
+      <div class="tw-titlebar">
+        <span class="tw-dot r" aria-hidden="true"></span>
+        <span class="tw-dot y" aria-hidden="true"></span>
+        <span class="tw-dot g" aria-hidden="true"></span>
+        <span class="tw-title">kasen@portfolio: ~</span>
+      </div>
+      <div class="tw-body">
+        <span class="tw-line">
+          <span class="tw-prompt">$</span><span class="tw-cmd">cd </span><span class="tw-muted" id="badPath">/404</span>
+        </span>
+        <span class="tw-line">
+          <span class="tw-err">bash: <span id="badPath2">/404</span>: No such file or directory</span>
+        </span>
+        <span class="tw-line blank"></span>
+        <span class="tw-line">
+          <span class="tw-prompt">$</span><span class="tw-cmd">ls ~/</span>
+        </span>
+        <span class="tw-line">
+          <a class="tw-ls" href="/#about">about</a><a class="tw-ls" href="/#experience">experience</a><a class="tw-ls" href="/#education">education</a><a class="tw-ls" href="/#projects">projects</a><a class="tw-ls" href="/#skills">skills</a>
+        </span>
+        <span class="tw-line blank"></span>
+        <span class="tw-line">
+          <span class="tw-prompt">$</span><span class="tw-cmd">cd ~/</span><span class="tw-caret" aria-hidden="true"></span>
+        </span>
+        <span class="tw-line">
+          <a class="tw-link" href="/">&rarr; return home</a>
+        </span>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    (function () {
+      var path = (location.pathname || "/404").replace(/</g, "&lt;");
+      document.getElementById("badPath").textContent  = path;
+      document.getElementById("badPath2").textContent = path;
+    })();
+  </script>
+</body>
+</html>
