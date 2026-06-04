@@ -760,6 +760,197 @@ h1, h2, h3 {
 }
 
 /* ------------------------------------------------------------
+   Thoughts — post list (homepage previews)
+   ------------------------------------------------------------ */
+.post-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-3);
+}
+
+.post-card {
+  display: block;
+  padding: var(--sp-4) var(--sp-5);
+  background-color: var(--bg-elevated);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  color: inherit;
+  transition: border-color var(--transition-base), background-color var(--transition-base);
+  font-variant-ligatures: none;
+}
+
+.post-card:hover {
+  border-color: var(--green-border);
+  background-color: var(--bg-hover);
+  color: inherit;
+}
+
+.post-head {
+  display: flex;
+  align-items: baseline;
+  gap: var(--sp-2);
+  margin-bottom: var(--sp-2);
+  flex-wrap: wrap;
+}
+
+.post-glyph {
+  color: var(--text-dim);
+  font-size: 0.625rem;
+  transition: color var(--transition-fast), transform var(--transition-fast);
+  flex-shrink: 0;
+}
+
+.post-card:hover .post-glyph {
+  color: var(--green);
+  transform: translateX(2px);
+}
+
+.post-head h3 {
+  font-size: var(--fs-sm);
+  font-weight: 500;
+  color: var(--text-primary);
+  flex: 1;
+  letter-spacing: 0;
+}
+
+.post-date {
+  font-size: var(--fs-xs);
+  color: var(--text-tertiary);
+  font-variant-numeric: tabular-nums;
+  flex-shrink: 0;
+}
+
+.post-desc {
+  font-size: var(--fs-xs) !important;
+  color: var(--text-secondary) !important;
+  margin-bottom: var(--sp-3) !important;
+  line-height: var(--lh-normal) !important;
+}
+
+.post-readmore {
+  font-size: var(--fs-xs);
+  color: var(--text-dim);
+  transition: color var(--transition-fast);
+  display: inline-block;
+}
+
+.post-card:hover .post-readmore {
+  color: var(--green);
+}
+
+/* ------------------------------------------------------------
+   Story page — focused reading layout
+   ------------------------------------------------------------ */
+.post-wrap {
+  max-width: 680px;
+  margin: 0 auto;
+  padding: var(--sp-6) var(--content-pad-x) var(--sp-8);
+}
+
+.post-topbar {
+  margin-bottom: var(--sp-7);
+  font-size: var(--fs-xs);
+  font-variant-ligatures: none;
+}
+
+.post-back {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  color: var(--text-tertiary);
+}
+
+.post-back:hover { color: var(--text-tertiary); }
+.post-back .pb-user   { color: var(--green); }
+.post-back .pb-at     { color: var(--text-tertiary); }
+.post-back .pb-host   { color: var(--red); }
+.post-back .pb-sep    { color: var(--text-tertiary); }
+.post-back .pb-path   { color: var(--text-secondary); }
+.post-back .pb-dollar { color: var(--text-secondary); margin-left: 4px; }
+
+.post-back .pb-cmd {
+  color: var(--text-secondary);
+  margin-left: 6px;
+  border-bottom: 1px dotted transparent;
+  transition: color var(--transition-fast), border-color var(--transition-fast);
+}
+
+.post-back:hover .pb-cmd {
+  color: var(--green);
+  border-bottom-color: var(--green-border);
+}
+
+.post-header {
+  margin-bottom: var(--sp-6);
+  padding-bottom: var(--sp-5);
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.post-title {
+  font-size: clamp(1.375rem, 5vw, 1.75rem);
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  margin-bottom: var(--sp-3);
+}
+
+.post-dek {
+  font-size: var(--fs-base);
+  color: var(--text-secondary);
+  line-height: var(--lh-normal);
+  margin-bottom: var(--sp-4);
+}
+
+.post-meta {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  font-size: var(--fs-xs);
+  color: var(--text-tertiary);
+  font-variant-numeric: tabular-nums;
+}
+
+.post-meta-sep { color: var(--text-dim); }
+
+.post-body p {
+  font-size: var(--fs-md);
+  color: var(--text-secondary);
+  line-height: 1.95;
+  margin-bottom: var(--sp-4);
+}
+
+.post-coda {
+  margin-top: var(--sp-6);
+  padding-top: var(--sp-6);
+  border-top: 1px dashed var(--border-subtle);
+}
+
+.post-coda p { margin-bottom: var(--sp-3); }
+
+.post-aside {
+  color: var(--text-tertiary) !important;
+}
+
+.post-finale {
+  font-size: var(--fs-lg) !important;
+  color: var(--green) !important;
+  font-weight: 600 !important;
+  line-height: var(--lh-normal) !important;
+  margin-top: var(--sp-4) !important;
+  margin-bottom: 0 !important;
+}
+
+.post-footer {
+  margin-top: var(--sp-7);
+  padding-top: var(--sp-4);
+  border-top: 1px solid var(--border-subtle);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--sp-4);
+  flex-wrap: wrap;
+}
+
+/* ------------------------------------------------------------
    Responsive
    ------------------------------------------------------------ */
 @media (max-width: 899px) {
