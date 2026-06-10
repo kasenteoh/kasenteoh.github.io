@@ -169,21 +169,6 @@ h1, h2, h3 {
   gap: var(--sp-2);
 }
 
-.avatar {
-  width: 56px;
-  height: 56px;
-  border-radius: var(--radius-sm);
-  object-fit: cover;
-  border: 1px solid var(--border-default);
-  filter: grayscale(15%) contrast(1.05);
-  transition: filter var(--transition-base), border-color var(--transition-base);
-}
-
-.avatar:hover {
-  filter: grayscale(0%) contrast(1.1);
-  border-color: var(--green-border);
-}
-
 .prompt {
   font-size: var(--fs-xs);
   color: var(--text-tertiary);
