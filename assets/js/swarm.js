@@ -674,11 +674,23 @@ function fail(err) {
 
 // ------------------------------------------------------------------ start
 async function start() {
+  if (!html.classList.contains("sw-pre")) return;
+  if (document.visibilityState !== "visible") {
+    html.classList.remove("sw-pre"); // nobody is watching: show the page
+    return;
+  }
   try {
     await Promise.race([document.fonts.ready, new Promise((r) => setTimeout(r, 1500))]);
   } catch (_) {}
   if (!html.classList.contains("sw-pre")) return; // the failsafe already showed the page
+  if (document.visibilityState !== "visible") {
+    html.classList.remove("sw-pre");
+    return;
+  }
   try {
+    try {
+      sessionStorage.setItem(core.SEEN_KEY, "1");
+    } catch (_) {}
     style = document.createElement("style");
     style.id = "sw-style";
     style.textContent = CSS;
@@ -722,6 +734,7 @@ async function start() {
 }
 
 if (html.classList.contains("sw-pre")) {
-  if (document.readyState === "complete") start();
+  if (document.visibilityState !== "visible") html.classList.remove("sw-pre");
+  else if (document.readyState === "complete") start();
   else on("load", start, { once: true });
 }

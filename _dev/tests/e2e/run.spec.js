@@ -19,6 +19,7 @@ async function userScroll(page, dy) {
 test('builds on first visit and restores the page exactly', async ({ page }) => {
   const errors = trackErrors(page);
   await page.goto('/?swarm=off');
+  await page.evaluate(() => document.fonts.ready); // measure with the web font loaded, as after the run
   const before = await page.evaluate(textShape);
   await page.goto('/?swarm=on');
   await expect(page.locator('#sw-bar')).toBeVisible({ timeout: 5000 });
