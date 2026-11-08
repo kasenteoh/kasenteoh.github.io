@@ -6,7 +6,7 @@
     "test": "tests"
   },
   "scripts": {
-    "unit": "node --test tests/unit/",
+    "unit": "node --test tests/unit/*.test.js",
     "e2e": "playwright test",
     "test": "npm run unit && npm run e2e"
   },
