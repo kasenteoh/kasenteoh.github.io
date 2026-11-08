@@ -77,6 +77,7 @@ const CSS = `
   #sw-boot .hd{display:flex;gap:6px;align-items:center;padding:8px 12px;border-bottom:1px solid #1f1f1f;color:#5f5f5f;font-size:11px}
   #sw-boot .hd i{width:9px;height:9px;border-radius:50%;background:#2a2a2a;display:inline-block}
   #sw-boot .bd{padding:12px 16px 14px;white-space:pre;min-height:7.5em}
+  @media (max-width:599px){#sw-boot{font-size:12px}#sw-boot .v{display:block;padding-left:3ch}}
   #sw-boot .g{color:#7ee787}#sw-boot .r{color:#ff7b72}#sw-boot .w{color:#e4e4e4}#sw-boot .d{color:#5f5f5f}
   #sw-bar{position:fixed;left:0;right:0;bottom:0;height:28px;z-index:10000;display:flex;align-items:center;gap:14px;
     padding:0 12px 0 0;background:#111;border-top:1px solid #2a2a2a;font:12px/28px var(--font-mono,monospace);color:#9a9a9a;
@@ -297,8 +298,10 @@ class Agent {
   }
 
   step(dt) {
-    // never keep building something that has left the screen; it goes back in the pool
-    if (this.task && !this.task.done && !released(this.task)) {
+    // a task finished elsewhere (finishAll, resize) is dropped at once; one that has
+    // left the screen goes back in the pool
+    if (this.task?.done) this.release();
+    else if (this.task && !released(this.task)) {
       this.task.claimed = false;
       this.release();
     }
@@ -350,6 +353,7 @@ class Agent {
     this.h = p.h;
     this.travelT += dt;
     if (Math.hypot(this.tx - this.x, this.ty - this.y) >= 6 && this.travelT <= 1.1 / speed) return;
+    if (t.done) return this.release(); // never glow text that is already final
     this.state = "work";
     if (t.kind === "box") {
       const r = t.el.getBoundingClientRect();
@@ -454,21 +458,22 @@ async function boot() {
   const row = async (label, value) => {
     const el = line();
     el.innerHTML = `<span class="d">  ${label} </span>`;
-    const dots = innerWidth < core.PHONE_MAX_W ? 3 : 10;
+    const dots = 19 - label.length - 1; // label, one space and dots fill 19 columns
     for (let i = 0; i < dots && !rushed; i++) {
       el.insertAdjacentHTML("beforeend", `<span class="d">.</span>`);
       await sleep(22);
     }
-    el.insertAdjacentHTML("beforeend", ` ${value}`);
+    // on phones the value drops to its own indented line (CSS), text unchanged
+    el.insertAdjacentHTML("beforeend", `<span class="v"> ${value}</span>`);
     await sleep(160);
   };
 
   await sleep(250);
   await type(line(), `<span class="g">kasen@portfolio</span><span class="d">:</span><span class="w">~$ </span><span class="w">swarm up --agents ${N}</span>`, 38);
   await sleep(220);
-  await row("snapshot   ", `<span class="w">${sections.length}</span> sections · <span class="w">${stats.boxes}</span> frames · <span class="w">${stats.strings}</span> strings`);
+  await row("snapshot", `<span class="w">${sections.length}</span> sections · <span class="w">${stats.boxes}</span> frames · <span class="w">${stats.strings}</span> strings`);
   await row("credentials", `<span class="w">${N}</span> agent tokens signed <span class="d">(vexis-sdk)</span>`);
-  await row("dispatch   ", `<span class="g">frame×${FRAMERS}</span> <span class="r">write×${N - FRAMERS}</span> · top-down`);
+  await row("dispatch", `<span class="g">frame×${FRAMERS}</span> <span class="r">write×${N - FRAMERS}</span> · top-down`);
   await sleep(200);
   return box;
 }
@@ -478,7 +483,7 @@ function makeBar() {
   bar = document.createElement("div");
   bar.id = "sw-bar";
   bar.innerHTML = `<span class="mode">SWARM</span>
-    <span><span class="k">agents</span> <span class="a"></span></span>
+    <span class="a"></span>
     <span class="g p"></span>
     <span class="hide-sm"><span class="k">tasks</span> <span class="t"></span></span>
     <span class="hide-sm"><span class="k">t+</span><span class="s"></span></span>
