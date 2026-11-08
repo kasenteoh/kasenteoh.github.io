@@ -86,7 +86,8 @@ const CSS = `
   #sw-bar .g{color:#7ee787}#sw-bar .k{color:#5f5f5f}
   #sw-bar .sp{flex:1}
   .sw-ok{color:#7ee787;font-size:.62em;font-weight:500;margin-left:.6em;opacity:0;transition:opacity .3s ease;vertical-align:middle}
-  @media (max-width:599px){#sw-bar .hide-sm{display:none}}
+  @media (max-width:599px){#sw-bar .hide-sm{display:none}#sw-bar{gap:8px}
+    #sw-bar.fin .mode,#sw-bar.fin .a,#sw-bar.fin .p{display:none}#sw-bar.fin .msg{padding-left:10px}}
 `;
 
 // ---------------------------------------------------------------- snapshot
@@ -483,7 +484,7 @@ function makeBar() {
   bar = document.createElement("div");
   bar.id = "sw-bar";
   bar.innerHTML = `<span class="mode">SWARM</span>
-    <span class="a hide-sm"></span>
+    <span class="a"></span>
     <span class="g p"></span>
     <span class="hide-sm"><span class="k">tasks</span> <span class="t"></span></span>
     <span class="hide-sm"><span class="k">t+</span><span class="s"></span></span>
@@ -504,7 +505,7 @@ function makeBar() {
 
 function updateBar(elapsed) {
   const pct = tasks.length ? doneCount / tasks.length : 1;
-  const cells = innerWidth < core.PHONE_MAX_W ? 10 : 18;
+  const cells = innerWidth < core.PHONE_MAX_W ? 6 : 18;
   const n = Math.round(pct * cells);
   const busy = agents.filter((a) => a.state !== "idle").length;
   barEls.a.textContent = `${busy}/${N} busy`;
@@ -634,6 +635,7 @@ function loop() {
 }
 
 function wrapUp() {
+  bar.classList.add("fin"); // on phones the message takes the whole bar
   barEls.msg.classList.remove("k");
   barEls.msg.classList.add("g");
   barEls.msg.textContent = skipped
