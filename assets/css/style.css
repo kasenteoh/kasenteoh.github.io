@@ -571,6 +571,122 @@ h1, h2, h3 {
 }
 
 /* ------------------------------------------------------------
+   Experience — grouped by company, roles as a file tree
+   ------------------------------------------------------------ */
+.exp {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-5);
+  font-variant-ligatures: none;
+}
+
+.exp-co-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: var(--sp-3);
+  padding-bottom: var(--sp-2);
+  margin-bottom: var(--sp-2);
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.exp-co-name {
+  font-size: var(--fs-base);
+  font-weight: 700;
+  color: var(--text-primary);
+  letter-spacing: 0;
+}
+
+.exp-slash {
+  color: var(--green);
+}
+
+.exp-co-note {
+  margin-left: var(--sp-2);
+  font-size: var(--fs-xs);
+  font-weight: 400;
+  color: var(--text-tertiary);
+}
+
+.exp-loc {
+  font-size: var(--fs-xs);
+  color: var(--text-tertiary);
+  white-space: nowrap;
+}
+
+.exp-roles {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-2);
+  list-style: none;
+}
+
+.exp-role {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  column-gap: var(--sp-3);
+  align-items: start;
+  padding: var(--sp-1) 0;
+}
+
+.exp-tree {
+  padding-top: 2px;
+  font-size: var(--fs-sm);
+  color: var(--text-dim);
+  letter-spacing: -1px;
+  white-space: nowrap;
+  user-select: none;
+}
+
+.exp-role.is-current .exp-tree,
+.exp-role.is-current .exp-date {
+  color: var(--green);
+}
+
+.exp-what h4 {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--sp-2);
+  font-size: var(--fs-sm);
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.section p.exp-team {
+  margin: 2px 0 0;
+  font-size: var(--fs-xs);
+  line-height: var(--lh-normal);
+  color: var(--text-secondary);
+}
+
+.exp-date {
+  padding-top: 3px;
+  font-size: var(--fs-xs);
+  color: var(--text-tertiary);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+@media (max-width: 599px) {
+  .exp-role {
+    grid-template-columns: auto 1fr;
+  }
+  .exp-tree {
+    grid-row: 1 / span 2;
+  }
+  .exp-date {
+    grid-column: 2;
+    grid-row: 1;
+    padding-top: 2px;
+  }
+  .exp-what {
+    grid-column: 2;
+    grid-row: 2;
+  }
+}
+
+/* ------------------------------------------------------------
    Projects
    ------------------------------------------------------------ */
 .project-grid {
