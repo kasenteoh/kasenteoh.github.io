@@ -483,12 +483,12 @@ function makeBar() {
   bar = document.createElement("div");
   bar.id = "sw-bar";
   bar.innerHTML = `<span class="mode">SWARM</span>
-    <span class="a"></span>
+    <span class="a hide-sm"></span>
     <span class="g p"></span>
     <span class="hide-sm"><span class="k">tasks</span> <span class="t"></span></span>
     <span class="hide-sm"><span class="k">t+</span><span class="s"></span></span>
     <span class="sp"></span>
-    <span class="msg k hide-sm"></span>`;
+    <span class="msg k"></span>`;
   document.body.appendChild(bar);
   barEls = {
     a: bar.querySelector(".a"),
@@ -497,7 +497,9 @@ function makeBar() {
     s: bar.querySelector(".s"),
     msg: bar.querySelector(".msg"),
   };
-  barEls.msg.textContent = "esc to skip";
+  barEls.msg.textContent = matchMedia("(hover: none)").matches ? "tap to skip" : "esc to skip";
+  bar.style.cursor = "pointer";
+  bar.addEventListener("pointerdown", skip, { signal: listeners.signal });
 }
 
 function updateBar(elapsed) {
@@ -570,6 +572,15 @@ function onKey(e) {
   else if (NAV_KEYS.has(e.key)) visitorInput();
 }
 
+// A click on any link mid-run: reveal everything now. No preventDefault, so the
+// link still goes through, and the wrap-up won't scroll the visitor back to the top.
+function onLinkClick(e) {
+  if (e.target instanceof Element && e.target.closest("a")) {
+    visitorInput();
+    finishAll();
+  }
+}
+
 function relayout() {
   for (const t of tasks) {
     if (t.done) continue;
@@ -623,7 +634,7 @@ function loop() {
 }
 
 function wrapUp() {
-  barEls.msg.classList.remove("k", "hide-sm");
+  barEls.msg.classList.remove("k");
   barEls.msg.classList.add("g");
   barEls.msg.textContent = skipped
     ? `✓ skipped · ${N} agents exited`
@@ -700,6 +711,7 @@ async function start() {
     html.classList.remove("sw-pre"); // page is now blank but laid out
 
     on("keydown", onKey);
+    document.addEventListener("click", onLinkClick, { capture: true, signal: listeners.signal });
     on("resize", relayout, { passive: true });
     on("wheel", visitorInput, { passive: true });
     on("touchstart", visitorInput, { passive: true });
