@@ -1,0 +1,21 @@
+{
+  "name": "_dev",
+  "version": "1.0.0",
+  "description": "",
+  "directories": {
+    "test": "tests"
+  },
+  "scripts": {
+    "unit": "node --test tests/unit/",
+    "e2e": "playwright test",
+    "test": "npm run unit && npm run e2e"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "devDependencies": {
+    "@playwright/test": "1.65.0"
+  },
+  "private": true
+}
