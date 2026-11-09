@@ -6,6 +6,11 @@ const isTouch = (info) => /phone|iphone/.test(info.project.name);
 test('Esc skips to the finished page', async ({ page }) => {
   await page.goto('/?swarm=on');
   await expect(page.locator('#sw-bar')).toBeVisible({ timeout: 5000 });
+  // the swarm's own UI is decoration, hidden from assistive tech while present
+  await expect(page.locator('#sw-boot')).toBeAttached();
+  for (const id of ['#sw-layer', '#sw-boot', '#sw-bar']) {
+    await expect(page.locator(id), id).toHaveAttribute('aria-hidden', 'true');
+  }
   await page.keyboard.press('Escape');
   await expect(page.locator('.sw-t')).toHaveCount(0, { timeout: 2500 });
   await expect(page.locator('#sw-bar')).toHaveCount(0, { timeout: 3000 });

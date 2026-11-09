@@ -25,6 +25,9 @@ const BOOT = { leadMs: 80, cps: 70, enterMs: 100, dotMs: 10, rowMs: 120, holdMs:
 // Build pace. Run length is measured on today's content; see _dev/tests/e2e/speed.spec.js.
 const TUNE = { travelEase: 18, workEase: 26, arrivePx: 10, travelMaxS: 0.7 };
 const NAV_KEYS = new Set(["ArrowDown", "ArrowUp", "PageDown", "PageUp", " ", "Home", "End"]);
+// No task finished, no agent busy, camera free to move: after this long, the run is stuck.
+const STALL_MS = 3000;
+const TAG_GAP = 11; // .sw-tag left offset from the cursor (px)
 
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
 const easeOut = (t) => 1 - Math.pow(1 - t, 3);
@@ -52,6 +55,8 @@ let cleaned = false;
 let tour = true; // camera follows the build
 let lastInput = -Infinity;
 let camY = null; // where the camera last left the page, to spot visitor scrolls
+let stallAt = 0; // last moment the run made progress (or was allowed to idle)
+let stallDone = -1;
 
 const on = (type, fn, opts) => addEventListener(type, fn, { ...opts, signal: listeners.signal });
 const later = (fn, ms) => {
@@ -67,13 +72,15 @@ const sleep = (ms) => (rushed ? Promise.resolve() : new Promise((r) => later(r, 
 const CSS = `
   .sw-rest{color:transparent!important;text-shadow:none!important;-webkit-text-fill-color:transparent}
   .sw-t>span:first-child{transition:color .7s ease,text-shadow .7s ease}
-  #sw-layer{position:fixed;inset:0;pointer-events:none;z-index:9998;font-family:var(--font-mono,ui-monospace,monospace)}
+  #sw-layer{position:fixed;inset:0;overflow:hidden;pointer-events:none;z-index:9998;font-family:var(--font-mono,ui-monospace,monospace)}
   .sw-agent{position:absolute;left:0;top:0;will-change:transform;transition:opacity .35s ease}
   .sw-caret{display:block;width:8px;height:16px;background:currentColor;box-shadow:0 0 12px currentColor;opacity:.92}
   .sw-agent.idle .sw-caret{animation:sw-blink 1s steps(2,end) infinite}
-  .sw-tag{position:absolute;left:11px;top:-15px;font:600 10px/14px var(--font-mono,monospace);padding:0 5px;border-radius:2px;color:#0a0a0a;white-space:nowrap;letter-spacing:.02em}
+  .sw-tag{position:absolute;left:${TAG_GAP}px;top:-15px;font:600 10px/14px var(--font-mono,monospace);padding:0 5px;border-radius:2px;color:#0a0a0a;white-space:nowrap;letter-spacing:.02em}
   .sw-scan{position:absolute;left:0;top:0;height:1px;background:currentColor;box-shadow:0 0 10px currentColor,0 0 2px currentColor;opacity:0;will-change:transform}
+  .sw-agent.flip .sw-tag{left:auto;right:${TAG_GAP}px}
   @keyframes sw-blink{to{visibility:hidden}}
+  @media print{#sw-layer,#sw-boot,#sw-bar{display:none!important}}
   #sw-boot{position:fixed;z-index:9999;background:#0e0e0e;border:1px solid #2a2a2a;border-radius:6px;
     box-shadow:0 24px 60px rgba(0,0,0,.6);font:13px/1.7 var(--font-mono,monospace);color:#9a9a9a;
     transition:opacity .45s ease,transform .45s ease;overflow:hidden}
@@ -107,8 +114,14 @@ function place(t) {
   }
   t.docY = top + (t.fixed ? 0 : scrollY);
   t.h = Math.max(0, b.bottom - top);
-  // off-screen sideways (the off-canvas sidebar on phones) or no longer rendered
-  t.off = b.right <= 0 || b.left >= innerWidth || (b.width === 0 && b.height === 0);
+  // off-screen sideways (the off-canvas sidebar on phones), wholly above the document
+  // top (a skip link at top:-40px: no scroll can ever bring it into view), or no
+  // longer rendered
+  t.off =
+    b.right <= 0 ||
+    b.left >= innerWidth ||
+    (!t.fixed && t.docY + t.h <= 0) ||
+    (b.width === 0 && b.height === 0);
 }
 
 function snapshot() {
@@ -307,6 +320,7 @@ class Agent {
     this.task = null;
     this.state = "idle";
     this.idleT = 0;
+    this.flipped = false;
     this.el = document.createElement("div");
     this.el.className = "sw-agent idle";
     this.el.style.color = this.color;
@@ -325,7 +339,11 @@ class Agent {
 
   setTag(s) {
     const v = `a${pad(this.id)}:${s}`;
-    if (this.tag.textContent !== v) this.tag.textContent = v;
+    if (this.tag.textContent === v) return;
+    this.tag.textContent = v;
+    // 10px mono with .02em tracking is ~6.2px a character, plus 10px padding;
+    // an estimate, so placing the tag never forces a layout
+    this.tagW = v.length * 6.2 + 10;
   }
 
   step(dt) {
@@ -350,6 +368,12 @@ class Agent {
     this.y += (this.ty - this.y) * ease;
     this.caret.style.height = `${clamp(this.h, 12, 34)}px`;
     this.el.style.transform = `translate3d(${this.x.toFixed(1)}px,${this.y.toFixed(1)}px,0)`;
+    // near the right edge the tag goes on the cursor's left, so it stays on screen
+    const flip = this.x + TAG_GAP + this.tagW > innerWidth - 2;
+    if (flip !== this.flipped) {
+      this.flipped = flip;
+      this.el.classList.toggle("flip", flip);
+    }
   }
 
   findWork(dt) {
@@ -461,6 +485,7 @@ async function boot() {
   const main = document.querySelector("main")?.getBoundingClientRect();
   const box = document.createElement("div");
   box.id = "sw-boot";
+  box.setAttribute("aria-hidden", "true"); // decoration: the page itself is the content
   const w = Math.min(600, innerWidth - 32, main ? main.width - 32 : 600);
   const left = main && innerWidth >= core.PHONE_MAX_W ? main.left + (main.width - w) / 2 : 16;
   Object.assign(box.style, { left: `${left}px`, top: `${innerHeight * 0.26}px`, width: `${w}px` });
@@ -520,6 +545,7 @@ async function boot() {
 function makeBar() {
   bar = document.createElement("div");
   bar.id = "sw-bar";
+  bar.setAttribute("aria-hidden", "true"); // changes every frame; Esc and tap still skip
   bar.innerHTML = `<span class="mode">SWARM</span>
     <span class="a"></span>
     <span class="g p"></span>
@@ -613,15 +639,18 @@ function onScroll() {
   if (camY !== null && Math.abs(scrollY - camY) > 2) visitorInput();
 }
 
+// Tab would focus links that aren't built yet: reveal everything, let the focus move.
 function onKey(e) {
   if (e.key === "Escape") skip();
+  else if (e.key === "Tab") finishAll();
   else if (NAV_KEYS.has(e.key)) visitorInput();
 }
 
-// A click on any link mid-run: reveal everything now. No preventDefault, so the
-// link still goes through, and the wrap-up won't scroll the visitor back to the top.
+// A click on any link or button (the mobile menu toggle) mid-run: reveal everything
+// now. No preventDefault, so the click still goes through, and the wrap-up won't
+// scroll the visitor back to the top. #sw-bar is not a button: a tap there is a skip.
 function onLinkClick(e) {
-  if (e.target instanceof Element && e.target.closest("a")) {
+  if (e.target instanceof Element && e.target.closest("a[href], button")) {
     visitorInput();
     finishAll();
   }
@@ -642,7 +671,12 @@ function finishAll() {
   if (finished || rushed) return;
   rushed = true;
   tour = false;
+  restoreScrolling(); // the camera is done; a reload from here may restore scroll
   for (const t of tasks) finishTask(t, true);
+}
+
+function restoreScrolling() {
+  if (prevRestoration) history.scrollRestoration = prevRestoration;
 }
 
 function skip() {
@@ -667,6 +701,11 @@ function loop() {
         const target = core.targetSeconds(innerWidth);
         speed = core.speedFactor(built, target);
         if (built > 3 * target) finishAll(); // stall watchdog: never hold the page hostage
+        // no-progress watchdog: the camera is free, nobody is busy, nothing finishes
+        if (doneCount !== stallDone || !tour || agents.some((a) => a.state !== "idle")) {
+          stallDone = doneCount;
+          stallAt = now;
+        } else if (now - stallAt > STALL_MS) finishAll();
       }
       for (const a of agents) a.step(dt);
       camera(dt, now);
@@ -721,7 +760,7 @@ function cleanup() {
   document.getElementById("sw-boot")?.remove();
   style?.remove();
   html.classList.remove("sw-pre");
-  if (prevRestoration) history.scrollRestoration = prevRestoration;
+  restoreScrolling();
 }
 
 // Never leave a hidden or half-built page behind: put the DOM back, then report.
@@ -770,9 +809,13 @@ async function start() {
     on("touchstart", visitorInput, { passive: true });
     on("touchmove", visitorInput, { passive: true });
     on("scroll", onScroll, { passive: true });
+    on("beforeprint", finishAll); // printing mid-run would print a blank page
+    on("pagehide", restoreScrolling); // leaving mid-run must not keep "manual"
+
 
     layer = document.createElement("div");
     layer.id = "sw-layer";
+    layer.setAttribute("aria-hidden", "true");
     document.body.appendChild(layer);
     makeBar();
     t0 = performance.now();
