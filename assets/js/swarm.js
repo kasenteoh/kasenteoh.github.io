@@ -13,15 +13,17 @@
  *   6. When done (or on Esc) agents exit and the authored DOM is put back.
  *
  * Runs only if the inline head snippet set html.sw-pre (it owns the run gate).
- * Dev flag: ?speed=0.5 slower, ?speed=2 faster.
  */
 import * as core from "./swarm-core.js";
 
 const html = document.documentElement;
-const SPEED = Math.max(0.2, parseFloat(new URLSearchParams(location.search).get("speed")) || 1);
 const COLORS = ["#7ee787", "#ff7b72", "#79c0ff", "#d2a8ff", "#e3b341", "#56d4dd"];
 const N = innerWidth < core.PHONE_MAX_W ? 7 : 12;
 const FRAMERS = Math.max(2, Math.round(N / 4));
+// Boot log timings (ms, not scaled by the speed factor): about 2 s from bar to first busy agent.
+const BOOT = { leadMs: 80, cps: 70, enterMs: 100, dotMs: 10, rowMs: 120, holdMs: 80, spawnMs: 30 };
+// Build pace. Run length is measured on today's content; see _dev/tests/e2e/speed.spec.js.
+const TUNE = { travelEase: 18, workEase: 26, arrivePx: 10, travelMaxS: 0.7 };
 const NAV_KEYS = new Set(["ArrowDown", "ArrowUp", "PageDown", "PageUp", " ", "Home", "End"]);
 
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
@@ -39,8 +41,9 @@ const view = { y: 0, h: 0, max: 0 }; // read once per frame
 const listeners = new AbortController();
 
 let style, layer, bar, barEls, prevRestoration;
-let speed = SPEED;
+let speed = 1; // core.speedFactor: 1 until the build overruns 1.5x the target
 let t0 = 0;
+let buildStart = null; // when the first agent went busy
 let doneCount = 0;
 let rushed = false; // finishAll(): everything revealed at once, fast exit
 let skipped = false; // skip(): as rushed, and the bar says "skipped"
@@ -58,7 +61,7 @@ const later = (fn, ms) => {
   }, ms);
   timers.add(id);
 };
-const sleep = (ms) => (rushed ? Promise.resolve() : new Promise((r) => later(r, ms / SPEED)));
+const sleep = (ms) => (rushed ? Promise.resolve() : new Promise((r) => later(r, ms)));
 
 // ------------------------------------------------------------------ styles
 const CSS = `
@@ -129,7 +132,7 @@ function snapshot() {
       (s) => parseFloat(cs[`border${s}Width`]) > 0 && cs[`border${s}Style`] !== "none" && !isClear(cs[`border${s}Color`])
     );
     if (!media && !bg && !bd) continue;
-    const t = { kind: "box", el, media, prevClip: el.style.clipPath, prevStyle: el.getAttribute("style"), deps: [], p: 0 };
+    const t = { kind: "box", el, media, prevClip: el.style.clipPath, prevStyle: el.getAttribute("style"), deps: [], kids: [], p: 0 };
     boxOfEl.set(el, t);
     tasks.push(t);
   }
@@ -184,6 +187,7 @@ function snapshot() {
     tasks.push(g);
   }
 
+  for (const t of tasks) for (const d of t.deps) d.kids.push(t);
   tasks.forEach((t, i) => {
     t.i = i;
     t.fixed = isFixed(t.el);
@@ -265,6 +269,14 @@ function startPoint(t) {
   return { x: r.left, y: clamp(r.top, 0, innerHeight - 44), h };
 }
 
+// What sits wholly above a box's scanline is no longer waiting on that box:
+// writers can follow the scan down instead of idling until it ends.
+function uncover(box, edgeY) {
+  for (const k of box.kids) {
+    if (k.docY + k.h <= edgeY && k.deps.includes(box)) k.deps = k.deps.filter((d) => d !== box);
+  }
+}
+
 // ---------------------------------------------------------------- agents
 class Agent {
   constructor(i, x, y) {
@@ -315,7 +327,7 @@ class Agent {
       else this.type(dt);
     }
 
-    const ease = 1 - Math.exp(-dt * (this.state === "work" ? 26 : 12) * speed);
+    const ease = 1 - Math.exp(-dt * (this.state === "work" ? TUNE.workEase : TUNE.travelEase) * speed);
     this.x += (this.tx - this.x) * ease;
     this.y += (this.ty - this.y) * ease;
     this.caret.style.height = `${clamp(this.h, 12, 34)}px`;
@@ -325,6 +337,7 @@ class Agent {
   findWork(dt) {
     const t = core.pickTask(tasks, this.role, released);
     if (t) {
+      buildStart ??= performance.now();
       t.claimed = true;
       this.task = t;
       this.state = "travel";
@@ -353,7 +366,7 @@ class Agent {
     this.ty = p.y;
     this.h = p.h;
     this.travelT += dt;
-    if (Math.hypot(this.tx - this.x, this.ty - this.y) >= 6 && this.travelT <= 1.1 / speed) return;
+    if (Math.hypot(this.tx - this.x, this.ty - this.y) >= TUNE.arrivePx && this.travelT <= TUNE.travelMaxS / speed) return;
     if (t.done) return this.release(); // never glow text that is already final
     this.state = "work";
     if (t.kind === "box") {
@@ -375,6 +388,7 @@ class Agent {
     t.el.style.clipPath = `inset(0 0 ${((1 - e) * 100).toFixed(2)}% 0)`;
     const r = t.el.getBoundingClientRect();
     const y = r.top + r.height * e;
+    uncover(t, y + (t.fixed ? 0 : scrollY));
     this.scan.style.transform = `translate3d(${r.left}px,${y}px,0)`;
     this.scan.style.width = `${r.width}px`;
     this.tx = r.right - 4;
@@ -442,7 +456,10 @@ async function boot() {
     tmp.innerHTML = markup;
     const parts = [...tmp.childNodes].map((n) => ({ cls: n.nodeType === 1 ? n.className : "", text: n.textContent }));
     const full = tmp.textContent.length;
-    for (let i = 1; i <= full && !rushed; i++) {
+    // characters follow the clock, so late timers don't stretch the line
+    const start = performance.now();
+    for (let i = 0; i < full && !rushed; ) {
+      i = clamp(Math.floor(((performance.now() - start) * cps) / 1000), i + 1, full);
       let left = i;
       el.innerHTML =
         parts
@@ -460,22 +477,24 @@ async function boot() {
     const el = line();
     el.innerHTML = `<span class="d">  ${label} </span>`;
     const dots = 19 - label.length - 1; // label, one space and dots fill 19 columns
-    for (let i = 0; i < dots && !rushed; i++) {
-      el.insertAdjacentHTML("beforeend", `<span class="d">.</span>`);
-      await sleep(22);
+    const start = performance.now();
+    for (let i = 0; i < dots && !rushed; ) {
+      const due = clamp(Math.floor((performance.now() - start) / BOOT.dotMs), i + 1, dots);
+      for (; i < due; i++) el.insertAdjacentHTML("beforeend", `<span class="d">.</span>`);
+      await sleep(BOOT.dotMs);
     }
     // on phones the value drops to its own indented line (CSS), text unchanged
     el.insertAdjacentHTML("beforeend", `<span class="v"> ${value}</span>`);
-    await sleep(160);
+    await sleep(BOOT.rowMs);
   };
 
-  await sleep(250);
-  await type(line(), `<span class="g">kasen@portfolio</span><span class="d">:</span><span class="w">~$ </span><span class="w">swarm up --agents ${N}</span>`, 38);
-  await sleep(220);
+  await sleep(BOOT.leadMs);
+  await type(line(), `<span class="g">kasen@portfolio</span><span class="d">:</span><span class="w">~$ </span><span class="w">swarm up --agents ${N}</span>`, BOOT.cps);
+  await sleep(BOOT.enterMs);
   await row("snapshot", `<span class="w">${sections.length}</span> sections · <span class="w">${stats.boxes}</span> frames · <span class="w">${stats.strings}</span> strings`);
   await row("credentials", `<span class="w">${N}</span> agent tokens signed <span class="d">(vexis-sdk)</span>`);
   await row("dispatch", `<span class="g">frame×${FRAMERS}</span> <span class="r">write×${N - FRAMERS}</span> · top-down`);
-  await sleep(200);
+  await sleep(BOOT.holdMs);
   return box;
 }
 
@@ -556,6 +575,14 @@ function camera(dt, now) {
   const step = d * Math.min(1, dt * (4 + idle * 0.6) * speed);
   scrollTo({ top: view.y + (d > 0 ? Math.min(d, step + 0.5) : Math.max(d, step - 0.5)), behavior: "instant" });
   camY = scrollY;
+  // busy cursors ride along with the page they are building, so travel isn't a chase
+  const moved = scrollY - view.y;
+  for (const a of agents) {
+    if (a.state === "idle" || a.task.fixed) continue;
+    a.y -= moved;
+    a.ty -= moved;
+  }
+  view.y = scrollY;
 }
 
 function visitorInput() {
@@ -617,6 +644,12 @@ function loop() {
       view.y = scrollY;
       view.h = innerHeight;
       view.max = Math.max(0, html.scrollHeight - innerHeight);
+      if (buildStart !== null) {
+        const built = (now - buildStart) / 1000;
+        const target = core.targetSeconds(innerWidth);
+        speed = core.speedFactor(built, target);
+        if (built > 3 * target) finishAll(); // stall watchdog: never hold the page hostage
+      }
       for (const a of agents) a.step(dt);
       camera(dt, now);
       const elapsed = (now - t0) / 1000;
@@ -735,7 +768,7 @@ async function start() {
       const r = bootBox.querySelector(".bd").getBoundingClientRect();
       for (let i = 0; i < N; i++) {
         agents.push(new Agent(i, r.left + 16 + i * 9, r.bottom - 20));
-        await sleep(45); // resolves at once after skip(), so all N still spawn
+        await sleep(BOOT.spawnMs); // resolves at once after skip(), so all N still spawn
       }
       bootBox.style.opacity = "0";
       bootBox.style.transform = "translateY(-8px)";
