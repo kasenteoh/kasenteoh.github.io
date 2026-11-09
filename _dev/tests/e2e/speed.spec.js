@@ -14,11 +14,23 @@ test('goes live within the target', async ({ page }, info) => {
 });
 
 test('boot log and spawn take at most 2.5 s', async ({ page }, info) => {
+  // timed in the page: when #sw-bar attaches and when the first agent goes busy
+  await page.addInitScript(() => {
+    const t = (window.__swBoot = { bar: null, busy: null });
+    const mo = new MutationObserver(() => {
+      if (t.bar === null && document.getElementById('sw-bar')) t.bar = performance.now();
+      if (t.busy === null && document.querySelector('.sw-agent:not(.idle)')) {
+        t.busy = performance.now();
+        mo.disconnect();
+      }
+    });
+    mo.observe(document, { subtree: true, childList: true, attributes: true, attributeFilter: ['class'] });
+  });
   await page.goto('/?swarm=on');
-  await expect(page.locator('#sw-bar')).toBeVisible({ timeout: 5000 });
-  const t0 = Date.now();
-  await page.locator('.sw-agent:not(.idle)').first().waitFor({ timeout: 5000 });
-  const ms = Date.now() - t0;
+  await page.waitForFunction(() => window.__swBoot.busy !== null, null, { timeout: 8000 });
+  const t = await page.evaluate(() => window.__swBoot);
+  expect(t.bar, '#sw-bar was never attached').not.toBeNull();
+  const ms = Math.round(t.busy - t.bar);
   console.log(`[speed] ${info.project.name} boot ${ms} ms`);
   expect(ms).toBeLessThanOrEqual(2500);
 });

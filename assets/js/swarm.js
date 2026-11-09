@@ -132,7 +132,7 @@ function snapshot() {
       (s) => parseFloat(cs[`border${s}Width`]) > 0 && cs[`border${s}Style`] !== "none" && !isClear(cs[`border${s}Color`])
     );
     if (!media && !bg && !bd) continue;
-    const t = { kind: "box", el, media, prevClip: el.style.clipPath, prevStyle: el.getAttribute("style"), deps: [], kids: [], p: 0 };
+    const t = { kind: "box", el, media, prevClip: el.style.clipPath, prevStyle: el.getAttribute("style"), deps: [], kids: [], held: new Set(), p: 0 };
     boxOfEl.set(el, t);
     tasks.push(t);
   }
@@ -270,11 +270,29 @@ function startPoint(t) {
 }
 
 // What sits wholly above a box's scanline is no longer waiting on that box:
-// writers can follow the scan down instead of idling until it ends.
-function uncover(box, edgeY) {
+// writers can follow the scan down instead of idling until it ends. The clip also
+// cuts anything overflowing the box sideways, so such a task waits for the whole box.
+function uncover(box, edgeY, r) {
   for (const k of box.kids) {
-    if (k.docY + k.h <= edgeY && k.deps.includes(box)) k.deps = k.deps.filter((d) => d !== box);
+    if (k.docY + k.h > edgeY || box.held.has(k) || !k.deps.includes(box)) continue;
+    const x = spanX(k);
+    if (x.left < r.left - 0.5 || x.right > r.right + 0.5) box.held.add(k);
+    else k.deps = k.deps.filter((d) => d !== box);
   }
+}
+
+// Horizontal extent of what a task draws: a box's border box, or its text's line boxes.
+function spanX(t) {
+  if (t.kind === "box") return t.el.getBoundingClientRect();
+  let left = Infinity;
+  let right = -Infinity;
+  for (const s of t.segs) {
+    for (const q of s.w.getClientRects()) {
+      left = Math.min(left, q.left);
+      right = Math.max(right, q.right);
+    }
+  }
+  return { left, right };
 }
 
 // ---------------------------------------------------------------- agents
@@ -388,7 +406,7 @@ class Agent {
     t.el.style.clipPath = `inset(0 0 ${((1 - e) * 100).toFixed(2)}% 0)`;
     const r = t.el.getBoundingClientRect();
     const y = r.top + r.height * e;
-    uncover(t, y + (t.fixed ? 0 : scrollY));
+    uncover(t, y + (t.fixed ? 0 : scrollY), r);
     this.scan.style.transform = `translate3d(${r.left}px,${y}px,0)`;
     this.scan.style.width = `${r.width}px`;
     this.tx = r.right - 4;

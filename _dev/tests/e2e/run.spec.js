@@ -1,5 +1,5 @@
 const { test, expect } = require('@playwright/test');
-const { trackErrors, waitForBuild, assertRestored, sampleAgents } = require('./helpers');
+const { trackErrors, waitForBuild, assertRestored, sampleAgents, sampleClipViolations } = require('./helpers');
 
 const textShape = () =>
   [...document.querySelectorAll('main h2, main h3, main h4, main p')].map((e) => [
@@ -130,4 +130,14 @@ test('status bar reads N/N busy', async ({ page }) => {
   const n = (await page.evaluate(() => innerWidth)) < 600 ? 7 : 12;
   await expect(page.locator('#sw-bar')).toContainText(new RegExp(`(^|\\s)\\d+/${n} busy`));
   await expect(page.locator('#sw-bar')).not.toContainText('agents');
+});
+
+// Writers may follow a box's scanline down instead of waiting for the whole box,
+// so no typed character may ever sit where an ancestor's clip-path still hides it.
+test('typed text never sits under a box clip', async ({ page }) => {
+  await page.goto('/?swarm=on');
+  await page.locator('#sw-bar').waitFor({ state: 'attached', timeout: 10000 });
+  const { samples, bad } = await sampleClipViolations(page);
+  expect(samples).toBeGreaterThan(20);
+  expect(bad).toEqual([]);
 });

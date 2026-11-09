@@ -74,4 +74,58 @@ async function sampleAgents(page, untilDone) {
   return totals;
 }
 
-module.exports = { trackErrors, waitForBuild, assertRestored, sampleAgents };
+/**
+ * Every ~100 ms until #sw-bar detaches (cap ~60 s): list typed text (a .sw-t with
+ * at least one typed character) whose rects leave the visible part of any ancestor
+ * with an inline clip-path: inset(...), vertically or sideways.
+ */
+async function sampleClipViolations(page) {
+  const check = () =>
+    page.evaluate(() => {
+      const bad = [];
+      const clips = new Map(); // element -> visible rect, or null if not clipped
+      const visible = (el) => {
+        if (clips.has(el)) return clips.get(el);
+        const m = /inset\(([^)]*)\)/.exec(el.style.clipPath || '');
+        let v = null;
+        if (m) {
+          const r = el.getBoundingClientRect();
+          const parts = m[1].trim().split(/\s+/);
+          const [t, rt, b, l] = [parts[0], parts[1] ?? parts[0], parts[2] ?? parts[0], parts[3] ?? parts[1] ?? parts[0]];
+          const len = (s, full) => (s.endsWith('%') ? (parseFloat(s) / 100) * full : parseFloat(s) || 0);
+          v = { top: r.top + len(t, r.height), bottom: r.bottom - len(b, r.height), left: r.left + len(l, r.width), right: r.right - len(rt, r.width) };
+        }
+        clips.set(el, v);
+        return v;
+      };
+      for (const w of document.querySelectorAll('.sw-t')) {
+        const typed = w.firstElementChild;
+        if (!typed || !typed.textContent.length) continue;
+        const rects = [...typed.getClientRects()].filter((r) => r.width > 0 && r.height > 0);
+        for (let a = w.parentElement; a && a !== document.documentElement; a = a.parentElement) {
+          const v = visible(a);
+          if (!v) continue;
+          for (const r of rects) {
+            if (r.top < v.top - 1 || r.bottom > v.bottom + 1 || r.left < v.left - 1 || r.right > v.right + 1) {
+              bad.push(`${JSON.stringify(typed.textContent.slice(0, 30))} under ${a.tagName.toLowerCase()}.${a.className}`);
+              break;
+            }
+          }
+        }
+      }
+      return { bar: !!document.getElementById('sw-bar'), bad };
+    });
+  const bad = new Set();
+  let samples = 0;
+  const end = Date.now() + 60000;
+  while (Date.now() < end) {
+    const s = await check();
+    samples++;
+    s.bad.forEach((b) => bad.add(b));
+    if (!s.bar) break;
+    await page.waitForTimeout(100);
+  }
+  return { samples, bad: [...bad] };
+}
+
+module.exports = { trackErrors, waitForBuild, assertRestored, sampleAgents, sampleClipViolations };
