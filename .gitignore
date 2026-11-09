@@ -3,3 +3,6 @@
 .idea/
 .vscode/
 .claude/
+_dev/node_modules/
+_dev/test-results/
+_dev/playwright-report/
